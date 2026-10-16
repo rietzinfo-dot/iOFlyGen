@@ -680,7 +680,7 @@ function saveState() {
 /* ---------- Sortiment ---------- */
 async function loadCatalogue() {
   try {
-    const response = await fetch('katalog.json');
+    const response = await fetch('katalog.json', { cache: 'no-cache' });   // neue Artikel/Bilder sofort sehen
     if (!response.ok) throw new Error(String(response.status));
     const data = await response.json();
     catalogue.stand = data.stand || '';
@@ -698,7 +698,7 @@ const allGroups = () => [WEEK_GROUP, ...catalogue.groups, OWN_GROUP, OTHER_GROUP
 const weeks = [];
 async function loadWeeks() {
   try {
-    const response = await fetch('wochen.json');
+    const response = await fetch('wochen.json', { cache: 'no-cache' });
     if (!response.ok) throw new Error(String(response.status));
     const data = await response.json();
     weeks.push(...(data.wochen || []));
