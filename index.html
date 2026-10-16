@@ -111,8 +111,9 @@ textarea.short { min-height: 89px; }
 .field-error { font-size: var(--t-small); color: var(--danger); font-weight: 700; margin-top: var(--s1); }
 .check { display: flex; gap: var(--s3); align-items: flex-start; font-weight: 700; }
 .check input { width: 24px; height: 24px; flex: none; margin: 0; accent-color: var(--accent); }
-.two { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s3); }
-.swatches { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s2); }
+.two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s3); }
+.two input[type="date"] { min-width: 0; padding-inline: var(--s2); }
+.swatches { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s2); }
 .swatch { position: relative; display: grid; gap: var(--s1); justify-items: center; padding: var(--s2); border: 1px solid var(--line); border-radius: var(--s2); font-size: var(--t-small); font-weight: 400; text-align: center; cursor: pointer; margin: 0; }
 .swatch input { position: absolute; opacity: 0; pointer-events: none; }
 .swatch .chip { width: 100%; aspect-ratio: 1.618; border-radius: var(--s1); border: 1px solid var(--line); }
@@ -213,7 +214,10 @@ dialog::backdrop { background: rgba(27, 36, 32, 0.55); }
 .claim-edit textarea { width: 100%; min-height: 70px; font: 600 15px system-ui, sans-serif; }
 .motto-handle .rot { left: 50%; top: -30px; margin-left: -8px; width: 16px; height: 16px; border-radius: 50%; cursor: grab; }
 .motto-handle .rot::after { content: ''; position: absolute; left: 50%; top: 14px; width: 2px; height: 14px; margin-left: -1px; background: var(--accent); }
-@media (hover: none) { .motto-handle { border-color: var(--accent); } .motto-handle .grip { opacity: 1; width: 21px; height: 21px; }
+/* Handy: Rahmen und Griffe nur am angetippten Element; nicht gewählt scrollt der Finger einfach die Seite */
+@media (hover: none) { .motto-handle { touch-action: pan-y; } .motto-handle .grip { width: 21px; height: 21px; pointer-events: none; }
+  .motto-handle:hover, .motto-handle:focus-visible { border-color: transparent; background: transparent; } .motto-handle:hover .grip, .motto-handle:focus-visible .grip { opacity: 0; }
+  .motto-handle.selected, .motto-handle.moving { border-color: var(--accent); touch-action: none; } .motto-handle.selected .grip, .motto-handle.moving .grip { opacity: 1; pointer-events: auto; }
   .motto-handle .rot { top: -40px; margin-left: -11px; width: 22px; height: 22px; } .motto-handle .rot::after { top: 20px; height: 18px; }
   .motto-handle .nw { left: -13px; top: -13px; } .motto-handle .se { right: -13px; bottom: -13px; } .motto-handle .ne { right: -13px; top: -13px; } .motto-handle .sw { left: -13px; bottom: -13px; } }
 .ghost { position: fixed; left: 0; top: 0; z-index: 1000; pointer-events: none; width: 89px; height: 89px; margin: -44px 0 0 -44px; border-radius: var(--radius); background: var(--surface); box-shadow: 0 8px 21px rgba(0, 0, 0, 0.3); display: grid; place-items: center; overflow: hidden; }
@@ -242,7 +246,7 @@ dialog::backdrop { background: rgba(27, 36, 32, 0.55); }
 .flip-btn.next { right: -76px; }
 .flip-btn:disabled { opacity: 0; pointer-events: none; }
 .flip-btn.drop { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 3px var(--accent); }
-@media (max-width: 800px) { .flip-btn { width: 44px; height: 72px; font-size: 28px; } .flip-btn.prev { left: 5px; } .flip-btn.next { right: 5px; } }
+@media (max-width: 800px) { .flip-btn { width: 30px; height: 60px; font-size: 24px; min-width: 0; background: rgba(255, 255, 255, 0.72); } .flip-btn.prev { left: 0; border-radius: 0 10px 10px 0; } .flip-btn.next { right: 0; border-radius: 10px 0 0 10px; } }
 .pager { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: var(--s2) var(--s3); min-height: 34px; }
 .pager-dots { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--s1); }
 .pager-dots button { min-height: 0; width: 34px; height: 34px; padding: 0; border-radius: 50%; font-size: var(--t-small); }
@@ -284,6 +288,8 @@ body:has(#app.studio) { padding: 0; background: #E9EBE6; }
 .tool-sep { height: 1px; background: var(--line); margin: 5px 4px; flex: none; }
 .studio-canvas { display: flex; flex-direction: column; gap: var(--s3); padding: var(--s3) var(--s4); min-width: 0; overflow-x: clip; }
 .studio-page { padding: var(--s4); }
+/* Schritt 2/3 (Marco 16.10.): Inhalt immer genau so breit wie der Platz – mit margin auto nahm er sonst die Breite des breitesten Inhalts an (am Handy 779 px) */
+.studio-canvas > .wrap { width: 100%; min-width: 0; }
 .studio-main > .studio-tools:first-child { top: 0; height: 100dvh; }
 .ctx-menu { padding-right: 34px; }
 .ctx-menu .ctx-close { position: absolute; top: 4px; right: 4px; min-width: 0; min-height: 0; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 50%; background: var(--bg); color: var(--ink); font-size: 14px; line-height: 1; z-index: 2; }
@@ -327,7 +333,8 @@ body:has(#app.studio) { padding: 0; background: #E9EBE6; }
 .ctx-menu .ico, .ctx-menu svg { width: 20px; height: 20px; display: block; }
 .logo-handle.selected { border-color: var(--accent); border-style: solid; }
 .logo-handle.selected .grip { opacity: 1; }
-.pages-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--s2); }
+.pages-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--s2); }
+.pages-grid button { min-width: 0; padding-inline: 4px; }
 @media (pointer: coarse) { .tool-zoom, .zoom-sep { display: none; } }
 @media (max-width: 760px) {
   .studio-top .brand { display: none; }
@@ -342,6 +349,20 @@ body:has(#app.studio) { padding: 0; background: #E9EBE6; }
   .tool { min-width: 58px; min-height: 48px; flex: none; }
   .tool-sep { width: 1px; height: 36px; margin: 0 2px; align-self: center; }
   .studio-canvas { padding: var(--s2); }
+  /* Handy (Marco 16.10.): Bearbeitungsleisten als Blatt am unteren Rand, volle Breite, nichts ragt aus dem Bild */
+  .ctx-menu:not([hidden]) { position: fixed; left: 0 !important; right: 0; top: auto !important; bottom: 0; transform: none; margin: 0 !important;
+    width: auto !important; max-width: none; max-height: 58dvh; overflow-y: auto; border-radius: 14px 14px 0 0; z-index: 40;
+    padding: 8px 8px calc(10px + env(safe-area-inset-bottom, 0px)); box-shadow: 0 -6px 24px rgba(27, 36, 32, 0.25);
+    grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)) !important; }
+  .ctx-menu.bg-menu:not([hidden]) { grid-template-columns: 1fr !important; }
+  .claim-menu:not([hidden]) { width: auto !important; }
+  .claim-menu .grp { grid-template-columns: 52px repeat(4, minmax(0, 1fr)); }
+  .ctx-menu button { min-width: 0; }
+  .fill-here { white-space: nowrap; font-size: 13px; min-height: 36px; padding: 0 12px; }
+  /* Knöpfe in Schritt 2/3 als ordentliches Zweier-Raster in voller Breite */
+  .studio-page .row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s2); }
+  .studio-page .row > button { width: 100%; min-width: 0; padding-inline: 8px; }
+  .studio-page .strip .shot { flex-basis: 78%; }
 }
 
 #toast {
@@ -813,6 +834,8 @@ function bestMain(items) {
 }
 function hintsFor(item, isMain) {
   const hints = [];
+  // Marco 16.10.: ein Artikel ohne Preis (z. B. neu aus der Ablage, 0,00 €) darf nicht als „keine Auffälligkeiten“ durchgehen
+  if (!(Number(item.price) > 0)) hints.push({ warn: true, text: 'Preis fehlt (0,00 €)' });
   if (item.ek && item.price < item.ek) hints.push({ warn: true, text: 'Unter dem Einkaufspreis' });
   if (item.lvp && item.price > item.lvp) hints.push({ warn: true, text: `Teurer als empfohlen (${formatPrice(item.lvp)} €)` });
   if (item.oldPrice && item.oldPrice <= item.price) hints.push({ warn: true, text: 'Alter Preis ist nicht höher' });
@@ -4123,6 +4146,8 @@ function logoHandle(canvas, flyer, figure) {
   handle.menu = menu;
   handle.addEventListener('pointerdown', (down) => {
     if (down.pointerType === 'mouse' && down.button !== 0) return;
+    // Handy (Marco 16.10.): erst antippen, dann ziehen – sonst verschiebt schon das Scrollen mit dem Finger
+    if (down.pointerType !== 'mouse' && !handle.classList.contains('selected')) return;
     down.stopPropagation();
     const resizing = down.target.classList.contains('grip');
     const start = handle.getBoundingClientRect();
@@ -4182,6 +4207,8 @@ function claimHandle(canvas, flyer, figure) {
   handle.addEventListener('dblclick', (event) => { event.stopPropagation(); figure.selectArea('claim'); const box = handle.menu.querySelector('.claim-edit'); box.hidden = false; box.querySelector('textarea').focus(); });
   handle.addEventListener('pointerdown', (down) => {
     if (down.pointerType === 'mouse' && down.button !== 0) return;
+    // Handy (Marco 16.10.): erst antippen, dann ziehen – sonst verschiebt schon das Scrollen mit dem Finger
+    if (down.pointerType !== 'mouse' && !handle.classList.contains('selected')) return;
     down.stopPropagation();
     const turning = down.target.classList.contains('rot');
     const resizing = !turning && down.target.classList.contains('grip');
@@ -4307,6 +4334,8 @@ function bandTextHandle(canvas, flyer, figure) {
   handle.addEventListener('click', (event) => { event.stopPropagation(); if (changed) { changed = false; return; } figure.selectArea(ui.sel === key ? null : key); });
   handle.addEventListener('pointerdown', (down) => {
     if (down.pointerType === 'mouse' && down.button !== 0) return;
+    // Handy (Marco 16.10.): erst antippen, dann ziehen – sonst verschiebt schon das Scrollen mit dem Finger
+    if (down.pointerType !== 'mouse' && !handle.classList.contains('selected')) return;
     down.stopPropagation();
     const turning = down.target.classList.contains('rot');
     const resizing = !turning && down.target.classList.contains('grip');
@@ -5662,6 +5691,11 @@ function viewBoard(flyer) {
 function viewCheck(flyer) {
   const main = mainItem(flyer);
   const dateError = flyer.to < flyer.from ? 'Das Ende liegt vor dem Anfang.' : '';
+  // Zeitraum plausibel? (Marco 16.10.) Vorbei, zu lang oder kein Montag als Start fällt sofort auf
+  const days = Math.round((Date.parse(flyer.to) - Date.parse(flyer.from)) / 86400000);
+  const dateWarn = dateError ? '' : flyer.to < todayIso() ? 'Achtung: Dieser Zeitraum ist schon vorbei. Stimmt die Woche?'
+    : days > 13 ? `Achtung: ${days + 1} Tage sind ungewöhnlich lang für einen Wochenhandzettel.`
+    : new Date(`${flyer.from}T12:00:00`).getDay() !== 1 ? 'Hinweis: Der Handzettel beginnt nicht an einem Montag.' : '';
   const warnCount = onPage(flyer).filter((i) => hintsFor(i, i === main).some((h) => h.warn)).length;
   const setDate = (key) => (event) => { if (isIsoDate(event.target.value)) { flyer[key] = event.target.value; saveState(); } render(); };
   return [
@@ -5672,7 +5706,8 @@ function viewCheck(flyer) {
       el('div', { class: 'two' },
         el('div', {}, el('label', { for: 'date-from', text: 'Gültig von' }), el('input', { type: 'date', id: 'date-from', value: flyer.from, onchange: setDate('from') })),
         el('div', {}, el('label', { for: 'date-to', text: 'Gültig bis' }), el('input', { type: 'date', id: 'date-to', value: flyer.to, onchange: setDate('to') }))),
-      dateError ? el('p', { class: 'field-error', text: dateError }) : el('p', { class: 'field-hint', text: `Das ist Kalenderwoche ${isoWeek(flyer.from)}.` })),
+      dateError ? el('p', { class: 'field-error', text: dateError }) : el('p', { class: 'field-hint', text: `Das ist Kalenderwoche ${isoWeek(flyer.from)} (${days + 1} Tage).` }),
+      dateWarn ? el('p', { class: 'notice warn', text: dateWarn }) : null),
     warnCount ? el('p', { class: 'notice warn', text: `${warnCount} Artikel ${warnCount === 1 ? 'hat' : 'haben'} einen Hinweis. Zum Ändern den Artikel antippen.` }) : el('p', { class: 'notice', text: 'Keine Auffälligkeiten gefunden. Bitte trotzdem jeden Preis kurz gegenlesen.' }),
     el('section', { class: 'panel' },
       onPage(flyer).map((item) => el('button', { type: 'button', class: 'check-row', onclick: () => openItemDialog(flyer, item, false) },
