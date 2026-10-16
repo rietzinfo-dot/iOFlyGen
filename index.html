@@ -183,6 +183,8 @@ dialog::backdrop { background: rgba(27, 36, 32, 0.55); }
 .band-pick.on { border-color: var(--accent); }
 .share-wa { background: #25D366; color: #FFFFFF; border-color: #25D366; font-weight: 700; }
 .share-fb { background: #1877F2; color: #FFFFFF; border-color: #1877F2; font-weight: 700; }
+.share-ig { background: #C13584; color: #FFFFFF; border-color: #C13584; font-weight: 700; }
+.share-btn { font-weight: 700; }
 .own-color { display: inline-flex; align-items: center; gap: 6px; font: 600 12px system-ui, sans-serif; cursor: pointer; padding: 0 6px; border: 1px solid var(--line, #ccc); border-radius: 6px; }
 .scale-handle { position: absolute; z-index: 2; pointer-events: none; border: 2px dashed transparent; border-radius: var(--s2); transform-origin: 0 0; }
 .sheet:hover .scale-handle, .scale-handle.moving { border-color: var(--accent); }
@@ -488,7 +490,11 @@ const coverStyle = () => 'einladung';   // „Klassisch“ ist seit 14.10. nicht
    Rezept mit wenigen Zutaten aus den Angeboten. Platz oben, in der Mitte oder unten; die Felder ordnen sich drumherum. */
 const RECIPE_PAGE = 2;
 const RECIPE_POS = ['oben', 'mitte', 'unten'];
-const recipeOf = (flyer) => (flyer.rezept && typeof flyer.rezept === 'object' ? flyer.rezept : {});
+// Ohne eigenes Rezept steht der passendste Vorschlag aus der Rezeptsammlung auf Seite 2 (Marco 16.10.)
+const recipeOf = (flyer) => {
+  const own = flyer.rezept && typeof flyer.rezept === 'object' ? flyer.rezept : {};
+  return own.titel ? own : { ...recipeSuggestions(flyer)[0], pos: own.pos, bild: own.bild || null };
+};
 const recipePage = (flyer) => (flyer.rezeptAus !== true && pagesOf(flyer) >= RECIPE_PAGE ? RECIPE_PAGE : 0);
 function rowsWithRecipe(flyer, rows) {
   const pos = RECIPE_POS.includes(recipeOf(flyer).pos) ? recipeOf(flyer).pos : 'oben';
@@ -1902,7 +1908,7 @@ function drawCustomCover(ctx, size, margin, gap, flyer, settings, images, spec, 
   else drawCoverStage(ctx, size, margin, gap, flyer, settings, images, main, spec.tiles, slots, bottom, spec.layout);
   // Den Spruch gibt es nur bei Markenband links (Marco 15.10.)
   if (kind !== 'links') return null;
-  // Ohne eigene Position sitzt der Spruch rechtsbündig auf der Oberkante des Hauptangebots (ragt nach oben heraus)
+  // Ohne eigene Position sitzt der Spruch am festen Ursprung (CLAIM_HOME_DEFAULT)
   const box = main && slots.find((b) => b.id === main.id);
   const home = box ? { box } : { x: 0.6, y: 0.1 };
   return drawClaim(ctx, size, flyer, settings, home);
@@ -1912,10 +1918,15 @@ const CLAIM_DEFAULT = 'Rund um die Uhr\neinkaufen & sparen';
 const CLAIM_SCALE = { min: 0.5, max: 2.2 };
 const claimTextOf = (flyer) => (flyer.claimOff ? '' : typeof flyer.claimText === 'string' ? flyer.claimText.trim() : CLAIM_DEFAULT);
 const claimLabel = (flyer) => claimTextOf(flyer).replace(/\n/g, ' ');
-const claimScale = (flyer) => Math.min(CLAIM_SCALE.max, Math.max(CLAIM_SCALE.min, Number(flyer.claimScale) || 1));
-/* Ursprung des Slogans (Marco 15.10.: „wo er jetzt steht“): auf diesem Gerät gespeichert, sonst am Hauptangebot. */
-const claimHome = () => (state.claimHome && Number.isFinite(state.claimHome.x) ? state.claimHome : null);
-const claimRot = (flyer) => (Number.isFinite(Number(flyer.claimRot)) ? Number(flyer.claimRot) : 0);
+/* Ursprung des Slogans: Platz, Drehung und Größe, wie Marco ihn am 15.10. im Artefakt festgelegt hat (16.10. fest übernommen, gilt auf jedem Gerät). */
+const CLAIM_HOME_DEFAULT = { x: 0.677, y: 0.114, rot: -12, scale: 1.1, align: 'left', big: false };
+const CLAIM_ALIGNS = ['left', 'center', 'right', 'block'];
+const claimAlignOf = (flyer) => (CLAIM_ALIGNS.includes(flyer.claimAlign) ? flyer.claimAlign : CLAIM_ALIGNS.includes(claimHome().align) ? claimHome().align : 'center');
+const claimBigOf = (flyer) => (flyer.claimBig !== undefined ? flyer.claimBig !== false : claimHome().big !== false);
+const claimScale = (flyer) => Math.min(CLAIM_SCALE.max, Math.max(CLAIM_SCALE.min, Number(flyer.claimScale) || Number(claimHome().scale) || 1));
+/* Ursprung des Slogans (Marco 15.10.: „wo er jetzt steht“): auf diesem Gerät neu festgelegt, sonst der feste Ursprung. */
+const claimHome = () => (state.claimHome && Number.isFinite(state.claimHome.x) ? state.claimHome : CLAIM_HOME_DEFAULT);
+const claimRot = (flyer) => (flyer.claimRot !== undefined && Number.isFinite(Number(flyer.claimRot)) ? Number(flyer.claimRot) : Number(claimHome().rot) || 0);
 /** Zwei Zeilen, die zweite PHI-mal größer. Eigener Zeilenumbruch (zwei Felder im Dialog) hat Vorrang;
     sonst kommt „… & …“ bzw. „… und …“ samt dem Wort davor in Zeile 2 („einkaufen & sparen“), sonst das letzte Wort. */
 function claimLines(text) {
@@ -1931,7 +1942,7 @@ function drawClaim(ctx, size, flyer, settings, home) {
   if (!text) return null;
   const lines = claimLines(text);
   // Optionen aus der Slogan-Leiste: letzte Zeile groß, fett/normal, Kontur
-  const big = flyer.claimBig !== false && lines.length > 1;
+  const big = claimBigOf(flyer) && lines.length > 1;
   const weight = flyer.claimBold === false ? 600 : 900;
   const outline = flyer.claimOutline !== false;
   const last = lines.length - 1;
@@ -1940,17 +1951,15 @@ function drawClaim(ctx, size, flyer, settings, home) {
   ctx.font = textFont(100, weight);
   const at100 = lines.map((line, i) => ctx.measureText(line).width * (i === last ? grow : 1));
   // Ohne eigene Größe passt der Spruch in die Breite des Hauptangebots
-  const room = !flyer.claimScale && home.box ? home.box.w * 0.94 : size.w / PHI ** 1.6;
+  const room = size.w / PHI ** 1.6;
   const z = Math.min(size.w / PHI ** 6.2, room / Math.max(...at100) * 100) * claimScale(flyer);
-  const align = ['left', 'center', 'right', 'block'].includes(flyer.claimAlign) ? flyer.claimAlign : 'center';
+  const align = claimAlignOf(flyer);
   const w = Math.max(...at100) * z / 100;
   // Blocksatz: jede Zeile genau so breit wie die breiteste (Schrift wird je Zeile angepasst)
   const sizes = lines.map((line, i) => z * (i === last ? grow : 1) * (align === 'block' ? Math.max(...at100) / at100[i] : 1));
   const h = sizes.reduce((sum, v) => sum + v * 0.92, 0);
   const pad = z / 2.6;
-  const pos = flyer.claimPos || claimHome() || (home.box
-    ? { x: (home.box.x + home.box.w - w / 2 - pad * 0.4) / size.w, y: (home.box.y - h * 0.08) / size.h }
-    : home);
+  const pos = flyer.claimPos || claimHome();
   // Immer ganz auf der Seite (mit Randabstand), auch wenn der Platz am Hauptangebot zu weit rechts liegt
   const edge = size.w / PHI ** 7 + pad;
   const cx = Math.min(size.w - edge - w / 2, Math.max(edge + w / 2, pos.x * size.w));
@@ -4380,7 +4389,7 @@ function claimMenu(canvas, flyer, box) {
   const pct = (value, total) => `${(value / total * 100).toFixed(3)}%`;
   const keep = (change) => () => { change(); saveState(); ui.sel = 'claim'; render(); };
   const aligns = ['left', 'center', 'right', 'block'];
-  const alignNow = aligns.includes(flyer.claimAlign) ? flyer.claimAlign : 'center';
+  const alignNow = claimAlignOf(flyer);
   const alignName = { left: 'Links', center: 'Zentriert', right: 'Rechts', block: 'Blocksatz' };
   const area = el('textarea', { rows: 3, 'aria-label': 'Text des Slogans' }, claimTextOf(flyer) || CLAIM_DEFAULT);
   const edit = el('div', { class: 'claim-edit', hidden: true },
@@ -4397,17 +4406,18 @@ function claimMenu(canvas, flyer, box) {
     btn('markt', 'Text', () => { edit.hidden = !edit.hidden; if (!edit.hidden) area.focus(); }, 'Text ändern'),
     btn('fett', flyer.claimBold === false ? 'Normal' : 'Fett', keep(() => { flyer.claimBold = flyer.claimBold === false; }), 'Fett oder normal'),
     btn('farbe', 'Kontur', keep(() => { flyer.claimOutline = flyer.claimOutline === false; }), 'Gelbe Kontur an oder aus', flyer.claimOutline !== false),
-    btn('gross', 'Letzte groß', keep(() => { flyer.claimBig = flyer.claimBig === false; }), 'Letzte Zeile größer', flyer.claimBig !== false)),
+    btn('gross', 'Letzte groß', keep(() => { flyer.claimBig = !claimBigOf(flyer); }), 'Letzte Zeile größer', claimBigOf(flyer))),
     el('div', { class: 'grp' }, el('span', { class: 'grp-name', text: 'Größe' }),
     btn('zoomout', 'Kleiner', keep(() => { flyer.claimScale = Math.max(CLAIM_SCALE.min, claimScale(flyer) / 1.1); }), 'Schrift kleiner'),
     btn('zoomin', 'Größer', keep(() => { flyer.claimScale = Math.min(CLAIM_SCALE.max, claimScale(flyer) * 1.1); }), 'Schrift größer'),
     btn(alignNow === 'right' ? 'rechts' : 'links', alignName[alignNow], keep(() => { flyer.claimAlign = aligns[(aligns.indexOf(alignNow) + 1) % aligns.length]; }), 'Ausrichtung: Links, Zentriert, Rechts, Blocksatz')),
     el('div', { class: 'grp' }, el('span', { class: 'grp-name', text: 'Platz' }),
-    btn('ganz', 'Ursprung', keep(() => { delete flyer.claimPos; delete flyer.claimRot; delete flyer.claimScale; }), 'Zurück an den Ursprung'),
+    btn('ganz', 'Ursprung', keep(() => { delete flyer.claimPos; delete flyer.claimRot; delete flyer.claimScale; delete flyer.claimAlign; delete flyer.claimBig; }), 'Zurück an den Ursprung'),
     btn('vorlage', 'Als Ursprung', () => {
-      if (!flyer.claimPos) { toast('Der Slogan steht schon am Ursprung.'); return; }
-      state.claimHome = { ...flyer.claimPos };
-      delete flyer.claimPos;
+      if (!flyer.claimPos && flyer.claimRot === undefined && !flyer.claimScale) { toast('Der Slogan steht schon am Ursprung.'); return; }
+      if (!flyer.claimPos) flyer.claimPos = { x: claimHome().x, y: claimHome().y };
+      state.claimHome = { ...flyer.claimPos, rot: claimRot(flyer), scale: claimScale(flyer), align: claimAlignOf(flyer), big: claimBigOf(flyer) };
+      delete flyer.claimPos; delete flyer.claimRot; delete flyer.claimScale; delete flyer.claimAlign; delete flyer.claimBig;
       saveState(); ui.sel = 'claim'; render();
       toast('Dieser Platz ist jetzt der Ursprung des Slogans.');
     }, 'Den jetzigen Platz als Ursprung festlegen'),
@@ -4596,6 +4606,62 @@ function fillPages(flyer) {
   render();
   toast(`${pick.length} Artikel ergänzt, zum empfohlenen Lüning-Preis. Bitte Preise prüfen.`);
 }
+/* Rezeptsammlung ohne KI (Marco 16.10.): wo Claude nicht verfügbar ist (z. B. auf GitHub), sucht iOFlyGen hier das Gericht,
+   das am besten zu den Angeboten der Woche passt. Jede Zutat mit Suchwort, die im Angebot steht, zählt als Treffer. */
+const RECIPE_BOOK = [
+  { titel: 'Ofenkartoffeln mit Kräuterquark', dauer: '40 Min.', zeit: ['Herbst', 'Winter', 'Frühling'],
+    zutaten: [['kartoffel', '800 g Kartoffeln'], ['quark', '250 g Quark'], ['schnittlauch|kräuter|petersilie', '1 Bund Kräuter'], ['gurke', '½ Salatgurke'], ['milch', '3 EL Milch']],
+    schritte: ['Kartoffeln waschen, halbieren und mit Öl und Salz bei 200 °C etwa 35 Minuten backen.', 'Quark mit Milch glatt rühren, Kräuter hacken und unterrühren, mit Salz und Pfeffer würzen.', 'Gurke in Würfel schneiden und unter den Quark heben.', 'Kartoffeln mit dem Kräuterquark servieren.'] },
+  { titel: 'Nudeln mit Tomaten-Sahne-Soße', dauer: '20 Min.',
+    zutaten: [['nudel|spaghetti|penne|fusilli|pasta', '250 g Nudeln'], ['tomate', '400 g Tomaten'], ['sahne', '100 ml Sahne'], ['zwiebel', '1 Zwiebel'], ['käse|parmesan|gouda|leerdammer', '40 g geriebener Käse']],
+    schritte: ['Nudeln in Salzwasser bissfest kochen.', 'Zwiebel würfeln und in Öl glasig dünsten, Tomaten klein schneiden und 5 Minuten mitköcheln.', 'Sahne einrühren, mit Salz und Pfeffer abschmecken.', 'Nudeln untermischen und mit Käse bestreuen.'] },
+  { titel: 'Hähnchen-Gemüse-Pfanne mit Reis', dauer: '25 Min.',
+    zutaten: [['hähnchen|huhn|geflügel|pute', '300 g Hähnchenbrust'], ['paprika', '1 Paprika'], ['zucchini', '1 Zucchini'], ['zwiebel', '1 Zwiebel'], ['reis', '150 g Reis']],
+    schritte: ['Reis nach Packungsangabe kochen.', 'Hähnchen in Streifen schneiden und in Öl rundum anbraten.', 'Gemüse in Stücke schneiden, dazugeben und 8 Minuten mitbraten, salzen und pfeffern.', 'Mit dem Reis anrichten.'] },
+  { titel: 'Bunter Salat mit Schafskäse', dauer: '15 Min.', zeit: ['Frühling', 'Sommer', 'Herbst'],
+    zutaten: [['gurke', '1 Salatgurke'], ['tomate', '250 g Tomaten'], ['paprika', '1 Paprika'], ['feta|schafskäse|hirtenkäse', '200 g Schafskäse'], ['olive', '50 g Oliven'], ['brot|baguette|brötchen', '1 Baguette']],
+    schritte: ['Gurke, Tomaten und Paprika waschen und in mundgerechte Stücke schneiden.', 'Schafskäse würfeln und mit den Oliven dazugeben.', 'Mit Öl, Salz und Pfeffer anmachen.', 'Mit frischem Brot servieren.'] },
+  { titel: 'Lachs mit Ofengemüse', dauer: '30 Min.',
+    zutaten: [['lachs|fisch|seelachs', '2 Lachsfilets'], ['kartoffel', '500 g Kartoffeln'], ['möhre|karotte', '3 Möhren'], ['brokkoli', '1 Brokkoli'], ['zitrone', '1 Zitrone']],
+    schritte: ['Kartoffeln und Möhren in Stücke schneiden, mit Öl und Salz bei 200 °C 15 Minuten backen.', 'Brokkoli in Röschen teilen und mit dem Lachs aufs Blech legen.', 'Weitere 12 Minuten backen.', 'Mit Zitronensaft beträufeln und servieren.'] },
+  { titel: 'Rührei mit Paprika und Brot', dauer: '15 Min.',
+    zutaten: [['\\beier\\b|\\bei\\b', '5 Eier'], ['paprika', '1 Paprika'], ['tomate', '2 Tomaten'], ['schnittlauch|kräuter', '½ Bund Schnittlauch'], ['brot|brötchen|toast', '4 Scheiben Brot']],
+    schritte: ['Paprika und Tomaten klein würfeln und in Öl 3 Minuten anbraten.', 'Eier verquirlen, salzen, pfeffern und in die Pfanne geben.', 'Bei kleiner Hitze stocken lassen und dabei vorsichtig rühren.', 'Mit Schnittlauch bestreuen und mit Brot servieren.'] },
+  { titel: 'Kartoffelsuppe mit Würstchen', dauer: '35 Min.', zeit: ['Herbst', 'Winter'],
+    zutaten: [['kartoffel', '600 g Kartoffeln'], ['würstchen|wiener|bockwurst|knacker', '4 Würstchen'], ['möhre|karotte', '2 Möhren'], ['lauch|porree', '1 Stange Lauch'], ['zwiebel', '1 Zwiebel']],
+    schritte: ['Kartoffeln, Möhren, Lauch und Zwiebel klein schneiden und in Öl kurz andünsten.', 'Mit 1 Liter Wasser auffüllen, salzen und 20 Minuten köcheln.', 'Die Hälfte grob zerstampfen, damit die Suppe sämig wird.', 'Würstchen in Scheiben schneiden und darin 5 Minuten ziehen lassen.'] },
+  { titel: 'Überbackener Käse-Schinken-Toast', dauer: '15 Min.',
+    zutaten: [['toast', '4 Scheiben Toast'], ['käse|leerdammer|gouda|scheiben', '4 Scheiben Käse'], ['schinken', '4 Scheiben Schinken'], ['tomate', '2 Tomaten'], ['gurke', '½ Salatgurke']],
+    schritte: ['Toast leicht rösten.', 'Mit Schinken, Tomatenscheiben und Käse belegen.', 'Bei 200 °C etwa 8 Minuten überbacken, bis der Käse schmilzt.', 'Mit Gurkenscheiben servieren.'] },
+  { titel: 'Hackfleisch-Reis-Pfanne', dauer: '25 Min.',
+    zutaten: [['hack', '300 g Hackfleisch'], ['reis', '150 g Reis'], ['paprika', '1 Paprika'], ['mais', '1 kleine Dose Mais'], ['tomate', '200 g Tomaten'], ['zwiebel', '1 Zwiebel']],
+    schritte: ['Reis nach Packungsangabe kochen.', 'Zwiebel würfeln, mit dem Hackfleisch in Öl krümelig braten.', 'Paprika, Tomaten und Mais dazugeben, 5 Minuten mitbraten, salzen und pfeffern.', 'Reis untermischen und servieren.'] },
+  { titel: 'Apfelpfannkuchen', dauer: '25 Min.', zeit: ['Herbst', 'Winter'],
+    zutaten: [['apfel|äpfel', '2 Äpfel'], ['mehl', '150 g Mehl'], ['milch', '250 ml Milch'], ['\\beier\\b|\\bei\\b', '2 Eier'], ['zucker', '2 EL Zucker']],
+    schritte: ['Mehl, Milch, Eier und eine Prise Salz zu einem glatten Teig rühren.', 'Äpfel in dünne Spalten schneiden.', 'Etwas Teig in eine heiße Pfanne mit Öl geben, Apfelspalten darauflegen und von beiden Seiten goldbraun backen.', 'Mit Zucker bestreuen und warm servieren.'] },
+  { titel: 'Frischer Obstsalat mit Joghurt', dauer: '10 Min.',
+    zutaten: [['traube', '250 g Trauben'], ['apfel|äpfel', '1 Apfel'], ['banane', '1 Banane'], ['kiwi', '2 Kiwis'], ['mango|orange|mandarine|clementine', '1 Mango oder 2 Orangen'], ['joghurt|quark|skyr', '250 g Joghurt']],
+    schritte: ['Obst waschen, schälen wo nötig und in mundgerechte Stücke schneiden.', 'Alles in einer Schüssel vorsichtig mischen.', 'Joghurt glatt rühren und darübergeben.'] },
+  { titel: 'Gefüllte Paprika', dauer: '45 Min.', zeit: ['Herbst', 'Winter', 'Frühling'],
+    zutaten: [['paprika', '4 Paprika'], ['hack', '300 g Hackfleisch'], ['reis', '80 g Reis'], ['tomate', '400 g passierte Tomaten'], ['käse|gouda|leerdammer', '60 g geriebener Käse']],
+    schritte: ['Reis halb gar kochen, mit dem Hackfleisch mischen, salzen und pfeffern.', 'Paprika aushöhlen und mit der Masse füllen.', 'In eine Form mit den Tomaten stellen und bei 190 °C 30 Minuten backen.', 'Käse darüberstreuen und 5 Minuten weiterbacken.'] },
+  { titel: 'Kürbissuppe', dauer: '35 Min.', zeit: ['Herbst', 'Winter'],
+    zutaten: [['kürbis', '1 Hokkaido-Kürbis'], ['möhre|karotte', '2 Möhren'], ['zwiebel', '1 Zwiebel'], ['sahne', '100 ml Sahne'], ['kartoffel', '1 Kartoffel']],
+    schritte: ['Kürbis, Möhren, Kartoffel und Zwiebel in Stücke schneiden und in Öl andünsten.', 'Mit 800 ml Wasser auffüllen, salzen und 20 Minuten köcheln.', 'Fein pürieren und die Sahne einrühren.', 'Mit Salz und Pfeffer abschmecken.'] },
+  { titel: 'Hähnchen-Wraps mit Salat', dauer: '20 Min.', zeit: ['Frühling', 'Sommer', 'Herbst'],
+    zutaten: [['wrap|tortilla', '4 Wraps'], ['hähnchen|huhn|geflügel|pute', '250 g Hähnchenbrust'], ['salat', '½ Kopfsalat'], ['tomate', '2 Tomaten'], ['gurke', '½ Salatgurke'], ['joghurt|frischkäse|exquisa', '4 EL Joghurt oder Frischkäse']],
+    schritte: ['Hähnchen in Streifen schneiden, in Öl braten, salzen und pfeffern.', 'Salat, Tomaten und Gurke klein schneiden.', 'Wraps mit Joghurt bestreichen, mit Gemüse und Hähnchen belegen.', 'Fest einrollen und halbieren.'] },
+];
+/** Rezepte der Sammlung, das passendste zuerst (Treffer in den Angeboten, dann Jahreszeit). */
+function recipeSuggestions(flyer) {
+  const offers = (flyer.items || []).map((i) => `${i.name || ''} ${i.inhalt || ''}`).join(' ').toLowerCase();
+  const season = seasonOf(flyer.from);
+  return RECIPE_BOOK.map((r, order) => {
+    const hits = r.zutaten.filter(([key]) => new RegExp(key, 'i').test(offers)).length;
+    return { r, order, score: hits * 2 + (!r.zeit || r.zeit.includes(season) ? 1 : 0) };
+  }).sort((a, b) => b.score - a.score || a.order - b.order)
+    .map(({ r }) => ({ titel: r.titel, dauer: r.dauer, zutaten: r.zutaten.map(([, text]) => text), schritte: [...r.schritte] }));
+}
 /** Bild-Text für Gemini/ChatGPT: nur das fertige Gericht (Marco 15.10.). */
 function recipeImagePrompt(r) {
   const z = (r.zutaten || []).filter(Boolean);
@@ -4641,8 +4707,17 @@ function openRecipeDialog(flyer) {
     const current = () => ({ titel: titel.value.trim(), dauer: dauer.value.trim(), zutaten: zutaten.value.split('\n').map((l) => l.trim()).filter(Boolean), schritte: schritte.value.split('\n').map((l) => l.trim()).filter(Boolean) });
     const fill = (r) => { titel.value = r.titel || ''; dauer.value = r.dauer || ''; zutaten.value = (r.zutaten || []).join('\n'); schritte.value = (r.schritte || []).join('\n'); imgPrompt.value = recipeImagePrompt(current()); };
     const status = el('p', { class: 'field-hint', role: 'status' });
-    // Weg 1: direkt mit Claude (nur in claude.ai)
-    const ask = el('button', { type: 'button', class: 'primary', hidden: true }, 'Rezept vorschlagen (Claude)');
+    // Weg 1 ohne KI (überall, auch auf GitHub): Vorschläge aus der Rezeptsammlung, jeder Klick zeigt den nächsten
+    const book = recipeSuggestions(flyer);
+    let bookAt = Math.max(0, book.findIndex((r) => r.titel === draft.titel));
+    const next = el('button', { type: 'button', class: 'primary', onclick: () => {
+      bookAt = (bookAt + 1) % book.length;
+      fill(book[bookAt]);
+      status.textContent = `Vorschlag ${bookAt + 1} von ${book.length} aus der Rezeptsammlung, passend zu den Angeboten. Prüfen, ändern, dann das Bild erstellen.`;
+    } }, 'Anderes Rezept vorschlagen');
+    if (!recipeOf(flyer).bild && !(flyer.rezept && flyer.rezept.titel)) status.textContent = 'Vorschlag aus der Rezeptsammlung, passend zu den Angeboten. Gefällt er nicht: „Anderes Rezept vorschlagen“.';
+    // Weg 2: direkt mit Claude (nur in claude.ai)
+    const ask = el('button', { type: 'button', hidden: true }, 'Rezept vorschlagen (Claude)');
     (async () => {
       const sample = window.claude && typeof window.claude.use === 'function' ? await window.claude.use('sample').catch(() => null) : null;
       if (!sample) return;
@@ -4657,12 +4732,12 @@ function openRecipeDialog(flyer) {
           fill(r);
           status.textContent = 'Fertig. Prüfen, ändern, dann das Bild erstellen.';
         } catch (e) {
-          if (e && (e.code === 'not_granted' || e.code === 'sampling_disabled')) { ask.hidden = true; status.textContent = 'Claude ist hier nicht freigegeben. Bitte Weg 2 nutzen.'; }
+          if (e && (e.code === 'not_granted' || e.code === 'sampling_disabled')) { ask.hidden = true; status.textContent = 'Claude ist hier nicht freigegeben. Bitte die Rezeptsammlung oder Gemini/ChatGPT nutzen.'; }
           else status.textContent = e && e.code === 'rate_limited' ? 'Gerade zu viele Anfragen. Bitte später noch einmal.' : 'Das hat nicht geklappt. Bitte noch einmal versuchen.';
         } finally { ask.disabled = false; }
       };
     })();
-    // Weg 2: ohne Claude – Text in Gemini oder ChatGPT einfügen, Antwort zurückkopieren
+    // Weg 3: ohne Claude – Text in Gemini oder ChatGPT einfügen, Antwort zurückkopieren
     const askText = el('textarea', { readonly: true, rows: 4 }, recipeTextPrompt(flyer));
     const answer = el('textarea', { rows: 3, placeholder: 'Antwort von Gemini oder ChatGPT hier einfügen' });
     answer.addEventListener('input', () => { const r = parseRecipeAnswer(answer.value); if (r && r.titel) { fill(r); status.textContent = 'Antwort übernommen.'; } });
@@ -4689,7 +4764,7 @@ function openRecipeDialog(flyer) {
     body.append(
       el('p', { class: 'small muted', text: 'Ein leichtes Rezept mit wenigen Zutaten aus den Angeboten der Woche. Es steht auf Seite 2 und lässt sich zusätzlich als eigenes Bild teilen.' }),
       el('h3', { text: '1. Rezept' }),
-      el('div', { class: 'row' }, ask), status,
+      el('div', { class: 'row' }, next, ask), status,
       el('details', {}, el('summary', { text: 'Ohne Claude: mit Gemini oder ChatGPT (kostenlos)' }),
         el('p', { class: 'field-hint', text: 'Diesen Text kopieren, in Gemini oder ChatGPT einfügen, die Antwort komplett kopieren und unten einfügen.' }),
         askText, el('button', { type: 'button', onclick: copy(askText) }, 'Text kopieren'), answer),
@@ -4765,7 +4840,7 @@ function openClaimDialog(flyer) {
     const [l1, l2] = claimLines(claimTextOf(flyer) || CLAIM_DEFAULT);
     const line1 = el('input', { type: 'text', id: 'claim-1', maxlength: 40, value: l1 || '' });
     const line2 = el('input', { type: 'text', id: 'claim-2', maxlength: 30, value: l2 || '' });
-    let align = ['left', 'center', 'right', 'block'].includes(flyer.claimAlign) ? flyer.claimAlign : 'center';
+    let align = claimAlignOf(flyer);
     const aligns = el('div', { class: 'swatches', role: 'radiogroup', 'aria-label': 'Ausrichtung' },
       [['left', 'Links'], ['center', 'Zentriert'], ['right', 'Rechts'], ['block', 'Blocksatz']].map(([id, name]) => {
         const radio = el('input', { type: 'radio', name: 'claim-align', value: id, checked: align === id });
@@ -5701,7 +5776,7 @@ async function jpegOf(blob, quality = 0.9) {
   ctx.drawImage(img, 0, 0);
   return c.toDataURL('image/jpeg', quality);
 }
-async function savePdf(flyer, shots) {
+async function savePdf(flyer, shots, deliver = saveFile) {
   toast('PDF wird erstellt …');
   try {
     const JsPdf = await loadPdfMaker();
@@ -5710,7 +5785,7 @@ async function savePdf(flyer, shots) {
       if (i) doc.addPage('a4', 'portrait');
       doc.addImage(await jpegOf(shots.seiten[i].blob), 'JPEG', 0, 0, 210, 297);
     }
-    await saveFile(`Handzettel_KW${isoWeek(flyer.from)}.pdf`, doc.output('blob'));
+    await deliver(`Handzettel_KW${isoWeek(flyer.from)}.pdf`, doc.output('blob'));
   } catch (error) { toast('Das PDF ließ sich nicht erstellen. Bitte Internetverbindung prüfen und noch einmal versuchen.'); }
 }
 /* Blätterkatalog (Marco 15.10.): eine einzelne HTML-Datei mit allen Seiten, zum Hochladen auf die eigene Webseite
@@ -5723,7 +5798,7 @@ async function saveFlipbook(flyer, shots) {
   const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   // Echtes Umblättern (Marco 15.10.): die Seite dreht sich in 3D um den Rücken, mit Schatten; am PC Doppelseiten
   // (Titelblatt allein rechts), am Handy Seite für Seite. Klick rechts/links, Wischen, Pfeiltasten oder Seitenzahlen.
-  const html = `<!doctype html><html lang="de"><head><meta charset="utf-8"><title>iOFlyGen</title><meta name="viewport" content="width=device-width,initial-scale=1">
+  const html = `<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(title)}</title><style>
 :root{--rot:${state.settings.farbePreis};--gelb:${state.settings.farbeKopf}}
 *{box-sizing:border-box}html,body{height:100%}body{margin:0;background:#2b2b2b;font:15px system-ui,sans-serif;color:#fff;display:flex;flex-direction:column;overflow:hidden}
@@ -5799,20 +5874,38 @@ function shareText(flyer) {
   const link = katalogLinkOf(flyer);
   return `Unsere Angebote ${flyerTitle(flyer)} im ${state.settings.marktName}, gültig ${flyerRange(flyer)}.${link ? `\nZum Durchblättern: ${link}` : ''}`;
 }
-async function shareWhatsApp(flyer, shots) {
+/* Teilen über das Teilen-Menü des Geräts (Marco 16.10.): am Handy gehen Bild oder PDF direkt an WhatsApp, Facebook,
+   Instagram, Telegram, E-Mail … Wo das Gerät keine Dateien weitergeben kann (PC, Vorschau in claude.ai), wird die Datei
+   gespeichert und ein Fenster zeigt die Netzwerke zum Hochladen. */
+async function shareFiles(flyer, files) {
   const text = shareText(flyer);
-  const files = shots ? shots.seiten.map((shot) => new File([shot.blob], shot.name, { type: 'image/png' })) : [];
   try {
-    if (files.length && navigator.canShare && navigator.canShare({ files })) { await navigator.share({ files, text }); return; }
+    if (navigator.canShare && navigator.canShare({ files })) { await navigator.share({ files, text }); return; }
   } catch (error) { if (error && error.name === 'AbortError') return; }
-  if (!katalogLinkOf(flyer)) toast('Tipp: Unter „Markt“ den Link zum Online-Handzettel eintragen, dann können Kunden darin blättern.');
-  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
+  openShareFallback(flyer, files);
 }
-function shareFacebook(flyer) {
-  const link = katalogLinkOf(flyer);
-  if (!link) { toast('Für Facebook bitte zuerst unter „Markt“ den Link zum Online-Handzettel eintragen.'); return; }
-  window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(link)}`, '_blank', 'noopener');
+function openShareFallback(flyer, files) {
+  const isPdf = files.some((f) => f.type === 'application/pdf');
+  openDialog('Teilen', ({ body, foot, close }) => {
+    const link = katalogLinkOf(flyer);
+    const text = shareText(flyer);
+    const open = (url) => window.open(url, '_blank', 'noopener');
+    const save = el('button', { type: 'button', class: 'primary', onclick: async () => { for (const f of files) await saveFile(f.name, f); } },
+      files.length > 1 ? `1. Alle ${files.length} Bilder speichern` : `1. ${isPdf ? 'PDF' : 'Bild'} speichern`);
+    body.append(
+      el('p', { text: 'Dieses Gerät gibt Dateien nicht direkt an andere Apps weiter. So geht es trotzdem:' }), save,
+      el('p', { text: '2. Netzwerk öffnen und die gespeicherte Datei dort hochladen:' }),
+      el('div', { class: 'row' },
+        el('button', { type: 'button', class: 'share-wa', onclick: () => open(`https://wa.me/?text=${encodeURIComponent(text)}`) }, 'WhatsApp'),
+        el('button', { type: 'button', class: 'share-fb', onclick: () => open(link ? `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(link)}` : 'https://www.facebook.com/') }, 'Facebook'),
+        el('button', { type: 'button', class: 'share-ig', onclick: () => open('https://www.instagram.com/') }, 'Instagram')),
+      el('p', { class: 'small muted', text: isPdf
+        ? 'Hinweis: WhatsApp, Telegram und E-Mail nehmen PDF-Dateien. Instagram nimmt keine PDF – dafür die Einzelbilder nehmen.'
+        : 'Am Handy erscheint statt dieses Fensters direkt das Teilen-Menü mit allen Apps.' }));
+    foot.append(el('button', { type: 'button', onclick: close }, 'Schließen'));
+  });
 }
+const fileOf = (shot) => new File([shot.blob], shot.name, { type: shot.blob.type || 'image/png' });
 function viewShare(flyer) {
   const isDraft = flyer.status === 'entwurf';
   if (!ui.shots || ui.shots.flyerId !== flyer.id) {
@@ -5824,7 +5917,10 @@ function viewShare(flyer) {
   const shots = ui.shots && ui.shots.flyerId === flyer.id ? ui.shots : null;
   const strip = (list, label) => el('div', { class: 'strip' }, list.map((shot, i) => el('figure', { class: 'shot', style: 'margin:0' },
     el('img', { src: shot.url, alt: `${label} ${i + 1} von ${list.length}` }),
-    el('button', { type: 'button', onclick: () => saveFile(shot.name, shot.blob) }, `${label} ${i + 1} speichern`))));
+    el('figcaption', { class: 'small muted', text: `${label} ${i + 1} von ${list.length}` }),
+    el('div', { class: 'row' },
+      el('button', { type: 'button', onclick: () => saveFile(shot.name, shot.blob) }, 'Speichern'),
+      el('button', { type: 'button', class: 'share-btn', onclick: () => shareFiles(flyer, [fileOf(shot)]) }, 'Teilen')))));
   const text = el('textarea', { id: 'post-text', readonly: true }, postText(flyer));
   return [
     el('div', { class: 'topbar' }, el('div', { class: 'brand', text: `Handzettel ${flyerTitle(flyer)}` }), el('span', { class: 'muted', text: flyerRange(flyer) })),
@@ -5832,20 +5928,17 @@ function viewShare(flyer) {
     el('h1', { text: isDraft ? 'Fertig zum Teilen' : `Handzettel ${flyerTitle(flyer)}` }),
     !shots ? el('p', { class: 'muted', text: 'Die Bilder werden erstellt …' }) : [
       el('section', { class: 'stack' },
-        el('h2', { text: 'Handzettel-Seiten' }),
-        el('p', { class: 'muted', text: 'Der ganze Handzettel wie gewohnt: Seiten speichern und per WhatsApp oder Facebook teilen.' }),
+        el('h2', { text: 'Ganzer Handzettel' }),
+        el('p', { class: 'muted', text: 'Alle Seiten in einer Datei: als PDF speichern oder direkt teilen, als Blätterkatalog zum Online-Stellen speichern.' }),
         el('div', { class: 'row' },
-          el('button', { type: 'button', class: 'share-wa', onclick: () => shareWhatsApp(flyer, shots) }, 'Über WhatsApp teilen'),
-          el('button', { type: 'button', class: 'share-fb', onclick: () => shareFacebook(flyer) }, 'Auf Facebook teilen')),
-        katalogLinkOf(flyer) ? null : el('p', { class: 'small muted', text: 'Noch kein Link zum Online-Handzettel eingetragen (unter „Markt“). WhatsApp teilt dann Bilder bzw. Text, Facebook braucht den Link.' }),
-        el('div', { class: 'row' },
-          el('button', { type: 'button', class: 'primary', onclick: () => savePdf(flyer, shots) }, 'Ganzer Handzettel als PDF'),
-          el('button', { type: 'button', onclick: () => saveFlipbook(flyer, shots) }, 'Blätterkatalog (zum Online-Stellen)')),
-        el('p', { class: 'small muted', text: 'Der Blätterkatalog ist eine einzelne Datei: auf die eigene Webseite laden oder als Link teilen – Kunden blättern darin mit Pfeilen, Wischen oder über die Seitenzahlen.' }),
-        strip(shots.seiten, 'Seite')),
+          el('button', { type: 'button', class: 'primary', onclick: () => savePdf(flyer, shots) }, 'PDF speichern'),
+          el('button', { type: 'button', class: 'share-btn', onclick: () => savePdf(flyer, shots, (name, blob) => shareFiles(flyer, [new File([blob], name, { type: 'application/pdf' })])) }, 'PDF teilen'),
+          el('button', { type: 'button', onclick: () => saveFlipbook(flyer, shots) }, 'Blätterkatalog speichern')),
+        el('p', { class: 'small muted', text: '„PDF teilen“ öffnet am Handy das Teilen-Menü (WhatsApp, Facebook, Telegram, E-Mail …). Der Blätterkatalog ist eine einzelne Datei für die eigene Webseite – Kunden blättern darin wie in einem Heft.' })),
       el('section', { class: 'stack' },
-        el('h2', { text: 'Einzelbilder zum Durchwischen' }),
-        el('p', { class: 'muted', text: 'Für Instagram, Facebook und den WhatsApp-Status: Bilder in dieser Reihenfolge hochladen.' }),
+        el('h2', { text: 'Einzelbilder' }),
+        el('p', { class: 'muted', text: 'Für Instagram, Facebook und den WhatsApp-Status: in dieser Reihenfolge hochladen.' }),
+        el('div', { class: 'row' }, el('button', { type: 'button', class: 'share-btn', onclick: () => shareFiles(flyer, shots.phone.map(fileOf)) }, `Alle ${shots.phone.length} Bilder teilen`)),
         strip(shots.phone, 'Bild')),
       shots.rezept && shots.rezept.length ? el('section', { class: 'stack' },
         el('h2', { text: 'Rezept der Woche' }),
