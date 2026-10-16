@@ -335,9 +335,12 @@ body:has(#app.studio) { padding: 0; background: #E9EBE6; }
   .studio-week h1 span, .studio-top .primary .long { display: none; }
   .studio-top .primary { text-transform: capitalize; }
   .studio-main { grid-template-columns: minmax(0, 1fr); }
-  .studio-tools { top: 48px; z-index: 15; height: auto; flex-direction: row; overflow-x: auto; overflow-y: hidden; border-right: 0; border-bottom: 1px solid var(--line); padding: 4px; }
+  /* Handy (Marco 16.10.): Leiste waagerecht und nur so hoch wie die Knöpfe – vorher galt die Desktop-Höhe 100dvh und schob den Handzettel aus dem Bild */
+  .studio-tools, .studio-main > .studio-tools:first-child { top: 48px; z-index: 15; height: auto; align-items: center; flex-direction: row; overflow-x: auto; overflow-y: hidden; border-right: 0; border-bottom: 1px solid var(--line); padding: 4px; }
+  .studio-main > .studio-tools:first-child { top: 0; }
+  .studio-tools .made-by { display: none; }
   .tool { min-width: 58px; min-height: 48px; flex: none; }
-  .tool-sep { width: 1px; height: auto; margin: 4px 2px; }
+  .tool-sep { width: 1px; height: 36px; margin: 0 2px; align-self: center; }
   .studio-canvas { padding: var(--s2); }
 }
 
