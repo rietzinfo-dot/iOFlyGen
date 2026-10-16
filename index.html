@@ -457,8 +457,8 @@ const boxCount = (rows) => rows.reduce((sum, row) => sum + row.cols.length, 0);
 /* Drei Gesamtlayouts (Marco 14.10.): die Wahl bestimmt die Titelseite UND die Anordnung auf allen weiteren Seiten.
    inner: Folge der Innenseiten-Raster ab Seite 2, wiederholt sich bei mehr Seiten. */
 /* Seit 15.10. drei Grundlayouts nach echten Handzetteln (Netto, Edeka, iO MARKT); look = Stil der Innenseiten. */
-/* GitHub-Testfassung: nur Markenband links */
 const DESIGNS = [
+/* GitHub-Testfassung: nur Markenband links */
   // Innenseiten wechseln zwischen Layouts im Goldenen Schnitt (Marco 15.10.: „abwechseln und lebendig“)
   { id: 'links', name: 'Markenband links', hint: 'Farbband links mit Logo und Angeboten, rechts Hauptangebot auf Gelb', cover: 'links', inner: ['mitte', 'zickzack', 'auftakt', 'finale'], look: 'links' },
 ];
@@ -2974,7 +2974,7 @@ function openSettingsDialog() {
     const slogan = el('input', { type: 'text', id: 'set-slogan', value: draft.slogan || '', maxlength: 30, placeholder: 'z. B. Immer offen.' });
     const whatsapp = el('input', { type: 'url', id: 'set-whatsapp', value: draft.whatsapp || '', placeholder: 'z. B. https://whatsapp.com/channel/…' });
     const facebook = el('input', { type: 'url', id: 'set-facebook', value: draft.facebook || '', placeholder: 'z. B. https://facebook.com/…' });
-    const katalog = el('input', { type: 'url', id: 'set-katalog', value: draft.katalogLink || '', placeholder: 'z. B. https://…/katalog/KW{kw}.html' });
+    const katalog = el('input', { type: 'url', id: 'set-katalog', value: draft.katalogLink || '', placeholder: KATALOG_FEST });
     const kopf = el('input', { type: 'color', id: 'set-kopf', value: draft.farbeKopf });
     const preis = el('input', { type: 'color', id: 'set-preis', value: draft.farbePreis });
     const grund = el('input', { type: 'color', id: 'set-grund', value: draft.farbeGrund, 'aria-label': 'Eigene Hintergrundfarbe' });
@@ -5865,11 +5865,49 @@ stage.addEventListener('touchend',e=>{if(x0===null)return;const d=e.changedTouch
 addEventListener('resize',()=>{const was=two;size();if(was!==two)pos=two?spreadOf(pos):Math.max(0,pagesOf(pos)[0]);draw()});
 size();const start=(parseInt(location.hash.slice(1),10)||1)-1;pos=two?spreadOf(start):start;draw();setTimeout(()=>{document.getElementById('hint').style.opacity=0},4000);
 <\/script></body></html>`;
-  await saveFile(`Handzettel_KW${isoWeek(flyer.from)}_Blaetterkatalog.html`, new Blob([html], { type: 'text/html' }));
+  await saveFile(KATALOG_DATEI, new Blob([html], { type: 'text/html' }));
 }
 /* Teilen per WhatsApp und Facebook (Marco 15.10.). Am Handy werden die Seiten als Bilder direkt geteilt
    (Teilen-Menü des Geräts), sonst geht der Text mit dem Link zum Online-Handzettel raus. Facebook braucht diesen Link. */
-const katalogLinkOf = (flyer) => String(state.settings.katalogLink || '').trim().replace(/\{kw\}/gi, String(isoWeek(flyer.from)));
+/* Fester Link zum Blätterkatalog (Marco 16.10.): ändert sich nie, jede Woche ersetzt der neue Katalog „aktuell.html“.
+   So bleiben QR-Aushang und Lesezeichen der Kunden gültig. Unter „Markt“ lässt sich ein anderer Link eintragen. */
+const KATALOG_FEST = 'https://rietzinfo-dot.github.io/iOFlyGen/katalog/aktuell.html';
+const KATALOG_DATEI = 'aktuell.html';
+const katalogLinkOf = (flyer) => (String(state.settings.katalogLink || '').trim() || KATALOG_FEST).replace(/\{kw\}/gi, String(isoWeek(flyer.from)));
+/** QR-Aushang (A4-PDF) für Tür und Kasse: führt immer zum aktuellen Blätterkatalog. */
+async function saveQrPoster(flyer) {
+  toast('QR-Aushang wird erstellt …');
+  try {
+    const link = katalogLinkOf(flyer);
+    const [JsPdf, qr] = await Promise.all([loadPdfMaker(), qrImage(link)]);
+    const settings = state.settings;
+    const W = 1240; const H = 1754;
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = settings.farbePreis; ctx.fillRect(0, 0, W, H * 0.2);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = settings.farbeKopf; ctx.font = textFont(96, 900);
+    ctx.fillText(settings.marktName, W / 2, H * 0.1);
+    ctx.fillStyle = '#FFFFFF'; ctx.font = textFont(48, 600);
+    ctx.fillText(settings.zusatz || '', W / 2, H * 0.165);
+    ctx.fillStyle = '#111111'; ctx.font = textFont(88, 900);
+    ctx.fillText('Unsere Angebote', W / 2, H * 0.29);
+    ctx.font = textFont(56, 600);
+    ctx.fillText('jede Woche neu zum Durchblättern', W / 2, H * 0.335);
+    const size = W * 0.56; const qx = (W - size) / 2; const qy = H * 0.38;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(qr, qx, qy, size, size);
+    ctx.fillStyle = settings.farbeKopf; ctx.fillRect(0, H * 0.82, W, H * 0.18);
+    ctx.fillStyle = '#111111'; ctx.font = textFont(60, 900);
+    ctx.fillText('Mit der Handy-Kamera scannen', W / 2, H * 0.885);
+    ctx.font = textFont(30, 400);
+    ctx.fillText(link.replace(/^https?:\/\//, ''), W / 2, H * 0.94);
+    const doc = new JsPdf({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
+    doc.addImage(c.toDataURL('image/png'), 'PNG', 0, 0, 210, 297);
+    await saveFile('QR-Aushang_Handzettel.pdf', doc.output('blob'));
+  } catch (error) { toast('Der QR-Aushang ließ sich nicht erstellen. Bitte Internetverbindung prüfen und noch einmal versuchen.'); }
+}
 function shareText(flyer) {
   const link = katalogLinkOf(flyer);
   return `Unsere Angebote ${flyerTitle(flyer)} im ${state.settings.marktName}, gültig ${flyerRange(flyer)}.${link ? `\nZum Durchblättern: ${link}` : ''}`;
@@ -5933,8 +5971,10 @@ function viewShare(flyer) {
         el('div', { class: 'row' },
           el('button', { type: 'button', class: 'primary', onclick: () => savePdf(flyer, shots) }, 'PDF speichern'),
           el('button', { type: 'button', class: 'share-btn', onclick: () => savePdf(flyer, shots, (name, blob) => shareFiles(flyer, [new File([blob], name, { type: 'application/pdf' })])) }, 'PDF teilen'),
-          el('button', { type: 'button', onclick: () => saveFlipbook(flyer, shots) }, 'Blätterkatalog speichern')),
-        el('p', { class: 'small muted', text: '„PDF teilen“ öffnet am Handy das Teilen-Menü (WhatsApp, Facebook, Telegram, E-Mail …). Der Blätterkatalog ist eine einzelne Datei für die eigene Webseite – Kunden blättern darin wie in einem Heft.' })),
+          el('button', { type: 'button', onclick: () => saveFlipbook(flyer, shots) }, 'Blätterkatalog speichern'),
+          el('button', { type: 'button', onclick: () => saveQrPoster(flyer) }, 'QR-Aushang drucken')),
+        el('p', { class: 'small muted', text: `Der Blätterkatalog wird als „${KATALOG_DATEI}“ gespeichert. Jede Woche auf GitHub in den Ordner „katalog“ hochladen (ersetzt die alte Woche) – dann zeigt der feste Link immer den aktuellen Handzettel: ${katalogLinkOf(flyer)}. Den QR-Aushang nur einmal drucken, er bleibt gültig.` }),
+        el('p', { class: 'small muted', text: '„PDF teilen“ öffnet am Handy das Teilen-Menü (WhatsApp, Facebook, Telegram, E-Mail …).' })),
       el('section', { class: 'stack' },
         el('h2', { text: 'Einzelbilder' }),
         el('p', { class: 'muted', text: 'Für Instagram, Facebook und den WhatsApp-Status: in dieser Reihenfolge hochladen.' }),
