@@ -10,6 +10,7 @@ main{flex:1;display:flex;align-items:center;justify-content:center;gap:10px;padd
 .page.l{left:0;width:50%;box-shadow:none}
 .page.r{right:0;width:50%;box-shadow:none}
 .single .page.r{width:100%;box-shadow:none}
+.single{overflow:hidden}
 .leaf{position:absolute;top:0;height:100%;transform-style:preserve-3d;z-index:5;transition:transform .9s cubic-bezier(.45,.05,.3,1)}
 .leaf .face{position:absolute;inset:0;background:#fff center/cover no-repeat;backface-visibility:hidden}
 .leaf .back{transform:rotateY(180deg)}
@@ -21,7 +22,7 @@ nav{display:flex;justify-content:center;gap:6px;padding:10px;flex-wrap:wrap}
 nav a{min-width:38px;height:38px;border-radius:19px;display:grid;place-items:center;background:#444;color:#fff;text-decoration:none;font-weight:700}
 nav a.on{background:var(--gelb);color:#1b2420}
 .hint{position:fixed;bottom:62px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.6);padding:6px 12px;border-radius:14px;font-size:13px;transition:opacity 1s}
-@media (max-width:700px){button.nav{width:38px;height:38px;font-size:22px}main{gap:4px;padding:6px}}
+@media (max-width:700px){main{position:relative;gap:0;padding:6px}button.nav{position:absolute;top:50%;transform:translateY(-50%);width:40px;height:40px;font-size:22px;opacity:.88;box-shadow:0 2px 8px rgba(0,0,0,.35)}#zur{left:8px}#vor{right:8px}}
 </style></head><body>
 <header><b>iO MARKT Görsbach</b><span>Angebote KW 42 · gültig 12.10. bis 17.10.2026</span></header>
 <main><button class="nav" id="zur" aria-label="Seite zurück">‹</button><div id="stage"></div><button class="nav" id="vor" aria-label="Seite weiter">›</button></main>
@@ -31,11 +32,12 @@ const P=["data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEU
 const stage=document.getElementById('stage'),nav=document.getElementById('nav');
 let two=false,pos=0,busy=false;
 const url=k=>k>=0&&k<P.length?'url('+P[k]+')':'none';
+const PRE=P.map(src=>{const i=new Image();i.src=src;if(i.decode)i.decode().catch(()=>{});return i});
 // Doppelseiten: Aufschlag s zeigt links Seite 2s-1, rechts Seite 2s (Titelblatt s=0 allein rechts)
 const spreadOf=k=>Math.ceil(k/2);
 const pagesOf=s=>[2*s-1,2*s];
 function size(){two=innerWidth>900&&P.length>1;stage.className=two?'':'single';
- const H=innerHeight-(document.querySelector('header').offsetHeight+nav.offsetHeight+40);const W=innerWidth-140;
+ const H=innerHeight-(document.querySelector('header').offsetHeight+nav.offsetHeight+40);const W=innerWidth-(innerWidth<=700?12:140);
  let h=Math.min(H,(two?W/2:W)*R);let w=h/R;stage.style.height=h+'px';stage.style.width=(two?w*2:w)+'px'}
 function page(cls,k){const d=document.createElement('div');d.className='page '+cls;d.style.backgroundImage=url(k);if(k<0||k>=P.length)d.style.background='transparent';return d}
 function draw(){stage.innerHTML='';if(two){const [a,b]=pagesOf(pos);stage.append(page('l',a),page('r',b))}else stage.append(page('r',pos));mark()}
@@ -51,11 +53,10 @@ function turn(dir,target){if(busy)return;const to=target===undefined?pos+dir:tar
    leaf.style.left='50%';leaf.style.width='50%';leaf.style.transformOrigin='left center';f.style.backgroundImage=url(c);b.style.backgroundImage=url(na)}
   else{const l=stage.querySelector('.page.l');l.style.backgroundImage=url(na);if(na<0)l.style.background='transparent';
    leaf.style.left='0';leaf.style.width='50%';leaf.style.transformOrigin='right center';f.style.backgroundImage=url(a);b.style.backgroundImage=url(nc);b.style.transform='rotateY(-180deg)'}}
- else{if(dir>0){stage.querySelector('.page.r').style.backgroundImage=url(to);leaf.style.left='0';leaf.style.width='100%';leaf.style.transformOrigin='left center';f.style.backgroundImage=url(pos);b.style.backgroundImage='none';b.style.background='#f3f3f3'}
-  else{leaf.style.left='0';leaf.style.width='100%';leaf.style.transformOrigin='left center';f.style.backgroundImage=url(to);leaf.style.transition='none';leaf.style.transform='rotateY(-180deg)'}}
- stage.append(leaf);void leaf.offsetWidth;leaf.style.transition='';leaf.classList.add('turning');
- requestAnimationFrame(()=>{leaf.style.transform=two?(dir>0?'rotateY(-180deg)':'rotateY(180deg)'):(dir>0?'rotateY(-180deg)':'rotateY(0deg)')});
- setTimeout(()=>{pos=to;draw();busy=false},950)}
+ else{leaf.style.left='0';leaf.style.width='100%';leaf.style.transition='none';f.style.backgroundImage=url(to);b.remove();leaf.style.boxShadow='0 0 28px rgba(0,0,0,.5)';leaf.style.transform='translateX('+(dir>0?105:-105)+'%)'}
+ stage.append(leaf);void leaf.offsetWidth;leaf.style.transition=two?'':'transform .42s cubic-bezier(.2,.7,.3,1)';leaf.classList.add('turning');
+ setTimeout(()=>{void leaf.offsetWidth;leaf.style.transform=two?(dir>0?'rotateY(-180deg)':'rotateY(180deg)'):'translateX(0)'},20);
+ setTimeout(()=>{pos=to;draw();busy=false},two?950:460)}
 P.forEach((_,k)=>{const a=document.createElement('a');a.href='#'+(k+1);a.textContent=k+1;a.onclick=e=>{e.preventDefault();turn(0,two?spreadOf(k):k)};nav.append(a)});
 document.getElementById('zur').onclick=()=>turn(-1);document.getElementById('vor').onclick=()=>turn(1);
 stage.addEventListener('click',e=>{const r=stage.getBoundingClientRect();turn(e.clientX-r.left>r.width/2?1:-1)});
